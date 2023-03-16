@@ -10,5 +10,10 @@ declare module '@capacitor/core' {
 
 export interface MyOneWelcomePluginPlugin {
   authenticateUserWith(options: { userId: string }): Promise<void>;
+
+  addListener(
+    eventName: 'didStartAuthentication',
+    listenerFunc: (data: { userId: string }) => void,
+  ): Promise<{ destroy: () => void }>;
 }
 
