@@ -7,38 +7,60 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.example.onewelcome.sdk.UserClient; // Import the oneWelcome SDK
 import com.example.onewelcome.sdk.UserProfile;
-import com.example.onewelcome.sdk.AuthenticationDelegate;
+import com.example.onewelcome.sdk.OneginiAuthenticationHandler;
+import com.example.onewelcome.sdk.OneginiAuthenticationError;
+import com.example.onewelcome.sdk.CustomInfo;
+import com.example.onewelcome.sdk.OneginiAuthenticator;
 
 @CapacitorPlugin(name = "MyOneWelcomePlugin")
-public class MyOneWelcomePluginPlugin extends Plugin implements OneWelcomeAuthenticationListener {
+public class MyOneWelcomePluginPlugin extends Plugin {
 
-    @PluginMethod()
-    public void authenticateUserWith(PluginCall call) {
+    @PluginMethod
+    public void authenticateUser(PluginCall call) {
         String userId = call.getString("userId");
         if (userId == null) {
             call.reject("userId is required");
             return;
         }
-        
+
         // Get the UserProfile instance for the given userId
         // Replace the following line with the actual implementation to get the UserProfile for the userId
         UserProfile userProfile = /* ... */;
-        
-        UserClient userClient = UserClient.getInstance();
-        userClient.authenticateUserWith(userProfile, null, new AuthenticationDelegate() {
-            // Implement the AuthenticationDelegate methods and call the corresponding methods in OneWelcomeAuthenticationListener
+
+        UserClient userClient = OneginiSDK.getOneginiClient(getContext()).getUserClient();
+        userClient.authenticateUser(userProfile, new OneginiAuthenticationHandler() {
+            @Override
+            public void onSuccess(UserProfile userProfile, CustomInfo customInfo) {
+                JSObject data = new JSObject();
+                data.put("userId", userProfile.getUserId());
+                data.put("customInfo", customInfo != null ? customInfo.toJson() : null);
+                notifyListeners("didAuthenticateUser", data);
+                call.resolve(data);
+            }
+
+            @Override
+            public void onError(OneginiAuthenticationError error) {
+                call.reject(error.getMessage());
+            }
         });
-        call.resolve();
     }
 
-    @Override
-    public void onAuthenticationStarted(String userId) {
-        JSObject data = new JSObject();
-        data.put("userId", userId);
-        notifyListeners("didStartAuthentication", data);
-    }
+    @PluginMethod
+    public void logoutUser(PluginCall call) {
+        UserClient userClient = OneginiSDK.getOneginiClient(getContext()).getUserClient();
+        userClient.logout(new OneginiLogoutHandler() {
+            @Override
+            public void onSuccess() {
+                JSObject data = new JSObject();
+                data.put("message", "User logged out");
+                notifyListeners("didLogoutUser", data);
+                call.resolve(data);
+            }
 
-    // Implement other OneWelcomeAuthenticationListener methods, similar to the one
-    // above, and call notifyListeners for each method to emit events to the
-    // front-end.
+            @Override
+            public void onError(LogoutError error) {
+                call.reject(error.getMessage());
+            }
+        });
+    }
 }
